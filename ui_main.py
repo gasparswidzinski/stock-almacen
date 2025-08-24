@@ -5,6 +5,8 @@ from PySide6.QtWidgets import (
 import pandas as pd
 import database
 from ui_formulario import FormularioProducto
+from ui_vender import FormularioVenta
+
 
 
 class MainWindow(QWidget):
@@ -33,12 +35,14 @@ class MainWindow(QWidget):
         self.btn_eliminar = QPushButton("🗑 Eliminar producto")
         self.btn_importar = QPushButton("📥 Importar desde Excel")
         self.btn_exportar = QPushButton("📤 Exportar a Excel")
+        self.btn_vender = QPushButton("🛒 Vender producto")
 
         botones.addWidget(self.btn_agregar)
         botones.addWidget(self.btn_editar)
         botones.addWidget(self.btn_eliminar)
         botones.addWidget(self.btn_importar)
         botones.addWidget(self.btn_exportar)
+        botones.addWidget(self.btn_vender)
         layout.addLayout(botones)
         self.setLayout(layout)
 
@@ -52,6 +56,8 @@ class MainWindow(QWidget):
         self.btn_exportar.clicked.connect(self.exportar_excel)
         self.btn_editar.clicked.connect(self.editar_producto)
         self.btn_eliminar.clicked.connect(self.eliminar_producto)
+        self.btn_vender.clicked.connect(self.vender_producto)
+        
 
 
     def actualizar_tabla(self):
@@ -140,4 +146,26 @@ class MainWindow(QWidget):
         database.eliminar_producto(id_)
         self.actualizar_tabla()
         self.actualizar_historial()
+
+    def vender_producto(self):
+        fila = self.table.currentRow()
+        if fila < 0:
+            self.historial.append("⚠ Selecciona un producto para vender")
+            return
+
+        id_ = int(self.table.item(fila, 0).text())
+        dialog = FormularioVenta(self)
+        if dialog.exec():
+            cantidad = dialog.obtener_cantidad()
+            if cantidad is None or cantidad <= 0:
+                self.historial.append("⚠ Cantidad inválida")
+                return
+
+            ok = database.modificar_stock(id_, -cantidad)
+            if ok:
+                self.actualizar_tabla()
+                self.actualizar_historial()
+                self.historial.append(f"🛒 Vendidas {cantidad} unidades (ID {id_})")
+            else:
+                self.historial.append("❌ Stock insuficiente o producto no encontrado")
 
