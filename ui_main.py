@@ -14,6 +14,7 @@ class MainWindow(QWidget):
         self.resize(850, 500)
 
         layout = QVBoxLayout()
+        botones = QHBoxLayout()
         
         self.btn_importar = QPushButton("📥 Importar Excel")
         botones.addWidget(self.btn_importar)
