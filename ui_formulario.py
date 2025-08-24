@@ -2,13 +2,17 @@ from PySide6.QtWidgets import QDialog, QVBoxLayout, QFormLayout, QLineEdit, QPus
 import database
 
 class FormularioProducto(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, codigo="", parent=None):
         super().__init__(parent)
         self.setWindowTitle("Agregar producto")
-        self.resize(300, 150)
+        self.resize(300, 180)
 
         layout = QVBoxLayout()
         form = QFormLayout()
+
+        self.input_codigo = QLineEdit()
+        self.input_codigo.setText(codigo)
+        form.addRow("Código:", self.input_codigo)
 
         self.input_nombre = QLineEdit()
         self.input_cantidad = QLineEdit()
@@ -27,15 +31,16 @@ class FormularioProducto(QDialog):
 
     def guardar(self):
         try:
+            codigo = self.input_codigo.text().strip()
             nombre = self.input_nombre.text().strip()
             cantidad = int(self.input_cantidad.text())
             precio = float(self.input_precio.text())
 
-            if not nombre:
-                QMessageBox.warning(self, "Error", "El nombre no puede estar vacío")
+            if not codigo or not nombre:
+                QMessageBox.warning(self, "Error", "Código y Nombre no pueden estar vacíos")
                 return
 
-            database.agregar_o_actualizar_producto(nombre, cantidad, precio)
+            database.agregar_o_actualizar_producto(codigo, nombre, cantidad, precio)
             QMessageBox.information(self, "Éxito", "Producto registrado correctamente ✅")
             self.accept()
         except ValueError:
