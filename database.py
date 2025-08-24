@@ -7,46 +7,89 @@ def init_db():
     conn = sqlite3.connect(DB_NAME)
     cur = conn.cursor()
 
-    # Tabla productos
     cur.execute("""
     CREATE TABLE IF NOT EXISTS productos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nombre TEXT NOT NULL,
+        nombre TEXT UNIQUE NOT NULL,
         cantidad INTEGER NOT NULL,
-        precio REAL NOT NULL
+        precio REAL NOT NULL,
+        movimientos INTEGER DEFAULT 0
     )
     """)
 
-    # Tabla movimientos
     cur.execute("""
     CREATE TABLE IF NOT EXISTS movimientos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        producto TEXT NOT NULL,
+        producto_id INTEGER NOT NULL,
         cambio INTEGER NOT NULL,
         precio REAL NOT NULL,
-        fecha TEXT NOT NULL
+        fecha TEXT NOT NULL,
+        FOREIGN KEY(producto_id) REFERENCES productos(id)
     )
     """)
     conn.commit()
     conn.close()
 
-def agregar_producto(nombre, cantidad, precio):
+def agregar_o_actualizar_producto(nombre, cantidad, precio):
     conn = sqlite3.connect(DB_NAME)
     cur = conn.cursor()
 
-    cur.execute("INSERT INTO productos (nombre, cantidad, precio) VALUES (?, ?, ?)",
-                (nombre, cantidad, precio))
+    cur.execute("SELECT id, cantidad, movimientos FROM productos WHERE nombre = ?", (nombre,))
+    producto = cur.fetchone()
 
-    cur.execute("INSERT INTO movimientos (producto, cambio, precio, fecha) VALUES (?, ?, ?, ?)",
-                (nombre, cantidad, precio, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+    if producto:  # ya existe → actualizar
+        new_cant = producto[1] + cantidad
+        new_movs = producto[2] + 1
+        cur.execute("UPDATE productos SET cantidad=?, precio=?, movimientos=? WHERE id=?",
+                    (new_cant, precio, new_movs, producto[0]))
+        producto_id = producto[0]
+    else:  # nuevo
+        cur.execute("INSERT INTO productos (nombre, cantidad, precio, movimientos) VALUES (?, ?, ?, ?)",
+                    (nombre, cantidad, precio, 1))
+        producto_id = cur.lastrowid
 
+    cur.execute("INSERT INTO movimientos (producto_id, cambio, precio, fecha) VALUES (?, ?, ?, ?)",
+                (producto_id, cantidad, precio, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+
+    conn.commit()
+    conn.close()
+
+def modificar_stock(producto_id, cambio):
+    conn = sqlite3.connect(DB_NAME)
+    cur = conn.cursor()
+    cur.execute("SELECT cantidad, precio, movimientos FROM productos WHERE id=?", (producto_id,))
+    prod = cur.fetchone()
+    if not prod:
+        conn.close()
+        return False
+
+    new_cant = prod[0] + cambio
+    if new_cant < 0:
+        conn.close()
+        return False
+
+    cur.execute("UPDATE productos SET cantidad=?, movimientos=? WHERE id=?",
+                (new_cant, prod[2]+1, producto_id))
+
+    cur.execute("INSERT INTO movimientos (producto_id, cambio, precio, fecha) VALUES (?, ?, ?, ?)",
+                (producto_id, cambio, prod[1], datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+
+    conn.commit()
+    conn.close()
+    return True
+
+def eliminar_producto(producto_id):
+    conn = sqlite3.connect(DB_NAME)
+    cur = conn.cursor()
+    cur.execute("DELETE FROM productos WHERE id=?", (producto_id,))
+    cur.execute("DELETE FROM movimientos WHERE producto_id=?", (producto_id,))
     conn.commit()
     conn.close()
 
 def obtener_productos():
     conn = sqlite3.connect(DB_NAME)
     cur = conn.cursor()
-    cur.execute("SELECT * FROM productos")
+    cur.execute("SELECT id, nombre, cantidad, precio, movimientos FROM productos")
     data = cur.fetchall()
     conn.close()
     return data
@@ -54,7 +97,13 @@ def obtener_productos():
 def obtener_movimientos():
     conn = sqlite3.connect(DB_NAME)
     cur = conn.cursor()
-    cur.execute("SELECT producto, cambio, precio, fecha FROM movimientos ORDER BY id DESC LIMIT 10")
+    cur.execute("""
+        SELECT p.nombre, m.cambio, m.precio, m.fecha
+        FROM movimientos m
+        JOIN productos p ON p.id = m.producto_id
+        ORDER BY m.id DESC LIMIT 10
+    """)
     data = cur.fetchall()
     conn.close()
     return data
+
