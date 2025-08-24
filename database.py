@@ -7,16 +7,19 @@ def init_db():
     conn = sqlite3.connect(DB_NAME)
     cur = conn.cursor()
 
+    # Tabla productos
     cur.execute("""
     CREATE TABLE IF NOT EXISTS productos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nombre TEXT UNIQUE NOT NULL,
+        codigo TEXT UNIQUE NOT NULL,
+        nombre TEXT NOT NULL,
         cantidad INTEGER NOT NULL,
         precio REAL NOT NULL,
         movimientos INTEGER DEFAULT 0
     )
     """)
 
+    # Tabla movimientos
     cur.execute("""
     CREATE TABLE IF NOT EXISTS movimientos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -30,22 +33,22 @@ def init_db():
     conn.commit()
     conn.close()
 
-def agregar_o_actualizar_producto(nombre, cantidad, precio):
+def agregar_o_actualizar_producto(codigo, nombre, cantidad, precio):
     conn = sqlite3.connect(DB_NAME)
     cur = conn.cursor()
 
-    cur.execute("SELECT id, cantidad, movimientos FROM productos WHERE nombre = ?", (nombre,))
+    cur.execute("SELECT id, cantidad, movimientos FROM productos WHERE codigo = ?", (codigo,))
     producto = cur.fetchone()
 
-    if producto:  # ya existe → actualizar
+    if producto:  # existe → actualizar stock
         new_cant = producto[1] + cantidad
         new_movs = producto[2] + 1
         cur.execute("UPDATE productos SET cantidad=?, precio=?, movimientos=? WHERE id=?",
                     (new_cant, precio, new_movs, producto[0]))
         producto_id = producto[0]
-    else:  # nuevo
-        cur.execute("INSERT INTO productos (nombre, cantidad, precio, movimientos) VALUES (?, ?, ?, ?)",
-                    (nombre, cantidad, precio, 1))
+    else:  # nuevo producto
+        cur.execute("INSERT INTO productos (codigo, nombre, cantidad, precio, movimientos) VALUES (?, ?, ?, ?, ?)",
+                    (codigo, nombre, cantidad, precio, 1))
         producto_id = cur.lastrowid
 
     cur.execute("INSERT INTO movimientos (producto_id, cambio, precio, fecha) VALUES (?, ?, ?, ?)",
@@ -70,10 +73,8 @@ def modificar_stock(producto_id, cambio):
 
     cur.execute("UPDATE productos SET cantidad=?, movimientos=? WHERE id=?",
                 (new_cant, prod[2]+1, producto_id))
-
     cur.execute("INSERT INTO movimientos (producto_id, cambio, precio, fecha) VALUES (?, ?, ?, ?)",
                 (producto_id, cambio, prod[1], datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-
     conn.commit()
     conn.close()
     return True
@@ -89,7 +90,7 @@ def eliminar_producto(producto_id):
 def obtener_productos():
     conn = sqlite3.connect(DB_NAME)
     cur = conn.cursor()
-    cur.execute("SELECT id, nombre, cantidad, precio, movimientos FROM productos")
+    cur.execute("SELECT id, codigo, nombre, cantidad, precio, movimientos FROM productos")
     data = cur.fetchall()
     conn.close()
     return data
@@ -106,4 +107,3 @@ def obtener_movimientos():
     data = cur.fetchall()
     conn.close()
     return data
-
