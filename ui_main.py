@@ -7,6 +7,7 @@ import database
 from ui_formulario import FormularioProducto
 from ui_vender import FormularioVenta
 from PySide6.QtGui import QShortcut, QKeySequence
+from PySide6.QtGui import QColor
 
 
 
@@ -70,12 +71,19 @@ class MainWindow(QWidget):
     def actualizar_tabla(self):
         productos = database.obtener_productos()
         self.table.setRowCount(len(productos))
-        self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["ID", "Nombre", "Cantidad", "Precio"])
+        self.table.setColumnCount(6)  # porque en la DB tenés: id, codigo, nombre, cantidad, precio, movimientos
+        self.table.setHorizontalHeaderLabels(["ID", "Código", "Nombre", "Cantidad", "Precio", "Movimientos"])
+
         for row, prod in enumerate(productos):
             for col, val in enumerate(prod):
-                self.table.setItem(row, col, QTableWidgetItem(str(val)))
+                item = QTableWidgetItem(str(val))
 
+                # Si estamos en la columna "Cantidad" (índice 3) y es bajo → rojo
+                if col == 3 and int(val) <= 5:
+                    item.setForeground(QColor("red"))
+
+                self.table.setItem(row, col, item)
+    
     def actualizar_historial(self):
         movimientos = database.obtener_movimientos()
         self.historial.clear()
@@ -87,10 +95,11 @@ class MainWindow(QWidget):
         if dialog.exec():
             datos = dialog.obtener_datos()
             try:
-                database.agregar_producto(
-                    datos["nombre"],
-                    int(datos["cantidad"]),
-                    float(datos["precio"])
+                database.agregar_o_actualizar_producto(
+                    datos["codigo"],     # Código
+                    datos["nombre"],     # Nombre
+                    int(datos["cantidad"]),  # Cantidad
+                    float(datos["precio"])   # Precio
                 )
                 self.actualizar_tabla()
                 self.actualizar_historial()
@@ -109,7 +118,12 @@ class MainWindow(QWidget):
             df = pd.read_excel(file_path)
             # Espera columnas: Nombre, Cantidad, Precio
             for _, row in df.iterrows():
-                database.agregar_producto(row["Nombre"], int(row["Cantidad"]), float(row["Precio"]))
+                database.agregar_o_actualizar_producto(
+                    str(row["Codigo"]),   # Código (columna del Excel)
+                    row["Nombre"],        # Nombre
+                    int(row["Cantidad"]), # Cantidad
+                    float(row["Precio"])  # Precio
+                )
             self.actualizar_tabla()
             self.actualizar_historial()
             self.historial.append(f"📥 Importado desde {file_path}")
@@ -122,10 +136,10 @@ class MainWindow(QWidget):
 
         id_ = int(self.table.item(fila, 0).text())
         datos = {
-            "codigo": id_,
-            "nombre": self.table.item(fila, 1).text(),
-            "cantidad": self.table.item(fila, 2).text(),
-            "precio": self.table.item(fila, 3).text()
+            "codigo": self.table.item(fila, 1).text(),   # Columna Código
+            "nombre": self.table.item(fila, 2).text(),   # Columna Nombre
+            "cantidad": self.table.item(fila, 3).text(), # Columna Cantidad
+            "precio": self.table.item(fila, 4).text()    # Columna Precio
         }
 
         dialog = FormularioProducto(self, datos)

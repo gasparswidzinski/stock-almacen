@@ -82,8 +82,16 @@ def modificar_stock(producto_id, cambio):
 def eliminar_producto(producto_id):
     conn = sqlite3.connect(DB_NAME)
     cur = conn.cursor()
+
+    cur.execute("SELECT id, nombre FROM productos WHERE id=?", (producto_id,))
+    producto = cur.fetchone()
+
     cur.execute("DELETE FROM productos WHERE id=?", (producto_id,))
-    cur.execute("DELETE FROM movimientos WHERE producto_id=?", (producto_id,))
+
+    if producto:
+        cur.execute("INSERT INTO movimientos (producto_id, cambio, precio, fecha) VALUES (?, ?, ?, ?)",
+                    (producto[0], 0, 0, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+
     conn.commit()
     conn.close()
 
@@ -112,28 +120,13 @@ def editar_producto(id_, nombre, cantidad, precio):
     conn = sqlite3.connect(DB_NAME)
     cur = conn.cursor()
 
+    # Actualizamos producto
     cur.execute("UPDATE productos SET nombre=?, cantidad=?, precio=? WHERE id=?",
                 (nombre, cantidad, precio, id_))
 
-    cur.execute("INSERT INTO movimientos (producto, cambio, precio, fecha) VALUES (?, ?, ?, ?)",
-                (f"EDIT {nombre}", 0, precio, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-
-    conn.commit()
-    conn.close()
-
-
-def eliminar_producto(id_):
-    conn = sqlite3.connect(DB_NAME)
-    cur = conn.cursor()
-
-    cur.execute("SELECT nombre FROM productos WHERE id=?", (id_,))
-    producto = cur.fetchone()
-
-    cur.execute("DELETE FROM productos WHERE id=?", (id_,))
-
-    if producto:
-        cur.execute("INSERT INTO movimientos (producto, cambio, precio, fecha) VALUES (?, ?, ?, ?)",
-                    (f"DEL {producto[0]}", 0, 0, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+    # Registramos movimiento de edición (cambio=0 solo para dejar registro)
+    cur.execute("INSERT INTO movimientos (producto_id, cambio, precio, fecha) VALUES (?, ?, ?, ?)",
+                (id_, 0, precio, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
 
     conn.commit()
     conn.close()
