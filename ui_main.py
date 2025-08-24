@@ -1,10 +1,11 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTableWidget, QTableWidgetItem, QTextEdit, QInputDialog, QMessageBox, QLineEdit
+    QTableWidget, QTableWidgetItem, QTextEdit, QInputDialog, QMessageBox, QLineEdit, QFileDialog
 )
 import database
 from ui_formulario import FormularioProducto
 import pandas as pd
+import os
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -13,6 +14,11 @@ class MainWindow(QWidget):
         self.resize(850, 500)
 
         layout = QVBoxLayout()
+        
+        self.btn_importar = QPushButton("📥 Importar Excel")
+        botones.addWidget(self.btn_importar)
+        self.btn_importar.clicked.connect(self.importar_excel)
+
 
         # Campo de escaneo de código
         self.input_scan = QLineEdit()
@@ -129,3 +135,31 @@ class MainWindow(QWidget):
         df = pd.DataFrame(productos, columns=["ID", "Código", "Nombre", "Cantidad", "Precio", "Movimientos"])
         df.to_excel("stock.xlsx", index=False)
         self.historial.append("✅ Exportado a stock.xlsx")
+    
+    def importar_excel(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Seleccionar archivo Excel o CSV", "", "Excel (*.xlsx);;CSV (*.csv)")
+        if not path:
+            return
+
+        try:
+            # Detectar extensión y leer archivo
+            if path.lower().endswith(".csv"):
+                df = pd.read_csv(path)
+            else:
+                df = pd.read_excel(path)
+
+            # Se esperan columnas: codigo, nombre, cantidad, precio
+            for _, row in df.iterrows():
+                codigo = str(row['codigo']).strip()
+                nombre = str(row['nombre']).strip()
+                cantidad = int(row['cantidad'])
+                precio = float(row['precio'])
+                # Agrega o actualiza automáticamente
+                database.agregar_o_actualizar_producto(codigo, nombre, cantidad, precio)
+
+            self.actualizar_tabla()
+            self.actualizar_historial()
+            self.historial.append(f"✅ Importado archivo: {os.path.basename(path)}")
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"No se pudo importar el archivo:\n{e}")
+
