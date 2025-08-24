@@ -6,6 +6,7 @@ import pandas as pd
 import database
 from ui_formulario import FormularioProducto
 from ui_vender import FormularioVenta
+from PySide6.QtGui import QShortcut, QKeySequence
 
 
 
@@ -45,6 +46,12 @@ class MainWindow(QWidget):
         botones.addWidget(self.btn_vender)
         layout.addLayout(botones)
         self.setLayout(layout)
+        
+        # Atajos de teclado
+        QShortcut(QKeySequence("F1"), self, activated=self.abrir_formulario)
+        QShortcut(QKeySequence("F2"), self, activated=self.vender_producto)
+        QShortcut(QKeySequence("F3"), self, activated=self.editar_producto)
+        QShortcut(QKeySequence("Delete"), self, activated=self.eliminar_producto)
 
         # Cargar datos iniciales
         self.actualizar_tabla()
