@@ -26,15 +26,20 @@ class MainWindow(QWidget):
         layout.addWidget(self.historial)
 
         # Botones
+        # Botones
         botones = QHBoxLayout()
         self.btn_agregar = QPushButton("➕ Agregar producto")
+        self.btn_editar = QPushButton("✏️ Editar producto")
+        self.btn_eliminar = QPushButton("🗑 Eliminar producto")
         self.btn_importar = QPushButton("📥 Importar desde Excel")
         self.btn_exportar = QPushButton("📤 Exportar a Excel")
+
         botones.addWidget(self.btn_agregar)
+        botones.addWidget(self.btn_editar)
+        botones.addWidget(self.btn_eliminar)
         botones.addWidget(self.btn_importar)
         botones.addWidget(self.btn_exportar)
         layout.addLayout(botones)
-
         self.setLayout(layout)
 
         # Cargar datos iniciales
@@ -45,6 +50,9 @@ class MainWindow(QWidget):
         self.btn_agregar.clicked.connect(self.abrir_formulario)
         self.btn_importar.clicked.connect(self.importar_excel)
         self.btn_exportar.clicked.connect(self.exportar_excel)
+        self.btn_editar.clicked.connect(self.editar_producto)
+        self.btn_eliminar.clicked.connect(self.eliminar_producto)
+
 
     def actualizar_tabla(self):
         productos = database.obtener_productos()
@@ -92,3 +100,44 @@ class MainWindow(QWidget):
             self.actualizar_tabla()
             self.actualizar_historial()
             self.historial.append(f"📥 Importado desde {file_path}")
+
+    def editar_producto(self):
+        fila = self.table.currentRow()
+        if fila < 0:
+            self.historial.append("⚠ Selecciona un producto para editar")
+            return
+
+        id_ = int(self.table.item(fila, 0).text())
+        datos = {
+            "codigo": id_,
+            "nombre": self.table.item(fila, 1).text(),
+            "cantidad": self.table.item(fila, 2).text(),
+            "precio": self.table.item(fila, 3).text()
+        }
+
+        dialog = FormularioProducto(self, datos)
+        if dialog.exec():
+            d = dialog.obtener_datos()
+            try:
+                database.editar_producto(
+                    id_,
+                    d["nombre"],
+                    int(d["cantidad"]),
+                    float(d["precio"])
+                )
+                self.actualizar_tabla()
+                self.actualizar_historial()
+            except ValueError:
+                self.historial.append("⚠ Error: cantidad y precio deben ser números")
+
+    def eliminar_producto(self):
+        fila = self.table.currentRow()
+        if fila < 0:
+            self.historial.append("⚠ Selecciona un producto para eliminar")
+            return
+
+        id_ = int(self.table.item(fila, 0).text())
+        database.eliminar_producto(id_)
+        self.actualizar_tabla()
+        self.actualizar_historial()
+
