@@ -291,28 +291,38 @@ class MainWindow(QMainWindow):
             self.status.showMessage("⚠ Selecciona un producto para vender", 5000)
             return
 
-        id_ = int(self.table.item(fila, 0).text())
-        nombre = self.table.item(fila, 2).text()
-        stock_actual = int(self.table.item(fila, 3).text())
+        producto = {
+            "id": int(self.table.item(fila, 0).text()),
+            "codigo": self.table.item(fila, 1).text(),
+            "nombre": self.table.item(fila, 2).text(),
+            "stock": int(self.table.item(fila, 3).text()),
+            "precio": float(self.table.item(fila, 4).text())
+        }
 
-        dialog = FormularioVenta(self)
+        from ui_vender import FormularioVenta
+        dialog = FormularioVenta(producto, self)
         if dialog.exec():
             cantidad = dialog.obtener_cantidad()
-            if cantidad is None or cantidad <= 0:
-                self.status.showMessage("⚠ Cantidad inválida", 5000)
+            if cantidad > producto["stock"]:
+                self.status.showMessage("❌ Stock insuficiente", 5000)
                 return
-            if cantidad > stock_actual:
-                self.status.showMessage(f"❌ Stock insuficiente: hay {stock_actual}, intentaste vender {cantidad}", 5000)
-                return
-
-            ok = database.modificar_stock(id_, -cantidad)
+            ok = database.modificar_stock(producto["id"], -cantidad)
             if ok:
                 self.actualizar_tabla()
                 self.actualizar_historial()
                 self.aplicar_filtros()
-                self.status.showMessage(f"🛒 Vendidas {cantidad} unidades de {nombre}", 5000)
-            else:
-                self.status.showMessage("❌ Stock insuficiente o producto no encontrado", 5000)
+                total = cantidad * producto["precio"]
+
+                # Mostrar en barra de estado
+                self.status.showMessage(
+                    f"🛒 Vendidas {cantidad} de {producto['nombre']} | Total: ${total:,.2f}", 8000
+                )
+
+                # Registrar también en historial lateral con el importe total
+                self.historial.append(
+                    f"💵 Venta: {cantidad} x {producto['nombre']} = ${total:,.2f}"
+                )
+
 
     # -----------------------------
     #   Reportes
