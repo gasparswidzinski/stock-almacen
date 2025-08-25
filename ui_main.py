@@ -1,86 +1,106 @@
 from PySide6.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTableWidget, QTableWidgetItem, QTextEdit, QFileDialog, QLineEdit, QLabel, QCheckBox,
-    QDialog, QDateEdit
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
+    QTableWidgetItem, QTextEdit, QFileDialog, QLineEdit, QLabel, QCheckBox,
+    QToolBar, QStatusBar, QMessageBox, QDialog, QDateEdit, QPushButton
 )
+from PySide6.QtGui import QAction, QColor, QKeySequence
+from PySide6.QtCore import Qt, QDate
 import pandas as pd
 import database
 from ui_formulario import FormularioProducto
 from ui_vender import FormularioVenta
-from PySide6.QtGui import QShortcut, QKeySequence, QColor
-from PySide6.QtCore import QDate
 
 
-class MainWindow(QWidget):
+class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Gestor de Stock - Almacén")
-        self.resize(860, 600)
+        self.resize(1100, 600)
 
-        layout = QVBoxLayout()
+        # --- Toolbar superior ---
+        toolbar = QToolBar("Menú principal")
+        toolbar.setMovable(False)
+        self.addToolBar(Qt.TopToolBarArea, toolbar)
 
-        # Barra búsqueda y filtro
-        topbar = QHBoxLayout()
-        topbar.addWidget(QLabel("🔎 Buscar:"))
+        # Acciones con íconos (texto Unicode)
+        self.act_agregar = QAction("➕ Agregar (F1)", self)
+        self.act_editar = QAction("✏️ Editar (F3)", self)
+        self.act_eliminar = QAction("🗑 Eliminar (Del)", self)
+        self.act_vender = QAction("🛒 Vender (F2)", self)
+        self.act_importar = QAction("📥 Importar Excel", self)
+        self.act_exportar = QAction("📤 Exportar Stock", self)
+        self.act_reporte = QAction("📊 Reporte ventas", self)
+        self.act_bajo_stock = QAction("🖨 Bajo stock", self)
+
+        for act in [self.act_agregar, self.act_editar, self.act_eliminar,
+                    self.act_vender, self.act_importar, self.act_exportar,
+                    self.act_reporte, self.act_bajo_stock]:
+            toolbar.addAction(act)
+
+        # --- Layout central ---
+        central = QWidget()
+        main_layout = QHBoxLayout(central)
+
+        # Panel izquierdo (tabla + búsqueda + filtro)
+        left_layout = QVBoxLayout()
+        search_layout = QHBoxLayout()
+        search_layout.addWidget(QLabel("🔎 Buscar:"))
         self.input_buscar = QLineEdit()
         self.input_buscar.setPlaceholderText("Código o Nombre...")
-        topbar.addWidget(self.input_buscar)
+        search_layout.addWidget(self.input_buscar)
         self.chk_bajo_stock = QCheckBox("Solo bajo stock (≤5)")
-        topbar.addWidget(self.chk_bajo_stock)
-        layout.addLayout(topbar)
+        search_layout.addWidget(self.chk_bajo_stock)
+        left_layout.addLayout(search_layout)
 
-        # Tabla
         self.table = QTableWidget()
-        self.table.setSortingEnabled(True)
-        layout.addWidget(self.table)
+        self.table.setAlternatingRowColors(True)
+        left_layout.addWidget(self.table)
 
-        # Historial
+        main_layout.addLayout(left_layout, stretch=3)
+
+        # Panel derecho (historial)
+        right_layout = QVBoxLayout()
+        lbl_historial = QLabel("📜 Historial de movimientos")
+        right_layout.addWidget(lbl_historial)
         self.historial = QTextEdit()
         self.historial.setReadOnly(True)
-        self.historial.setMaximumHeight(140)
-        layout.addWidget(self.historial)
+        right_layout.addWidget(self.historial)
+        main_layout.addLayout(right_layout, stretch=1)
 
-        # Botones
-        botones = QHBoxLayout()
-        self.btn_agregar = QPushButton("➕ Agregar (F1)")
-        self.btn_editar = QPushButton("✏️ Editar (F3)")
-        self.btn_eliminar = QPushButton("🗑 Eliminar (Del)")
-        self.btn_importar = QPushButton("📥 Importar Excel")
-        self.btn_exportar = QPushButton("📤 Exportar Stock")
-        self.btn_vender = QPushButton("🛒 Vender (F2)")
-        self.btn_reporte = QPushButton("📊 Reporte ventas")
-        self.btn_bajo_stock = QPushButton("🖨 Imprimir bajo stock")
+        self.setCentralWidget(central)
 
-        for b in [self.btn_agregar, self.btn_editar, self.btn_eliminar,
-                  self.btn_importar, self.btn_exportar, self.btn_vender,
-                  self.btn_reporte, self.btn_bajo_stock]:
-            botones.addWidget(b)
-        layout.addLayout(botones)
-        self.setLayout(layout)
-
-        # Atajos
-        QShortcut(QKeySequence("F1"), self, activated=self.abrir_formulario)
-        QShortcut(QKeySequence("F2"), self, activated=self.vender_producto)
-        QShortcut(QKeySequence("F3"), self, activated=self.editar_producto)
-        QShortcut(QKeySequence("Delete"), self, activated=self.eliminar_producto)
+        # --- Barra de estado ---
+        self.status = QStatusBar()
+        self.setStatusBar(self.status)
+        self.status.showMessage("✅ Aplicación iniciada - Base de datos lista")
 
         # Inicializar
         self._productos_cache = []
         self.actualizar_tabla()
         self.actualizar_historial()
 
-        # Conexiones
-        self.btn_agregar.clicked.connect(self.abrir_formulario)
-        self.btn_importar.clicked.connect(self.importar_excel)
-        self.btn_exportar.clicked.connect(self.exportar_excel)
-        self.btn_editar.clicked.connect(self.editar_producto)
-        self.btn_eliminar.clicked.connect(self.eliminar_producto)
-        self.btn_vender.clicked.connect(self.vender_producto)
+        # --- Conexiones ---
+        self.act_agregar.triggered.connect(self.abrir_formulario)
+        self.act_editar.triggered.connect(self.editar_producto)
+        self.act_eliminar.triggered.connect(self.eliminar_producto)
+        self.act_vender.triggered.connect(self.vender_producto)
+        self.act_importar.triggered.connect(self.importar_excel)
+        self.act_exportar.triggered.connect(self.exportar_excel)
+        self.act_reporte.triggered.connect(self.generar_reporte_ventas)
+        self.act_bajo_stock.triggered.connect(self.imprimir_bajo_stock)
+
         self.input_buscar.textChanged.connect(self.aplicar_filtros)
         self.chk_bajo_stock.toggled.connect(self.aplicar_filtros)
-        self.btn_reporte.clicked.connect(self.generar_reporte_ventas)
-        self.btn_bajo_stock.clicked.connect(self.imprimir_bajo_stock)
 
+        # Atajos de teclado
+        self.act_agregar.setShortcut(QKeySequence("F1"))
+        self.act_vender.setShortcut(QKeySequence("F2"))
+        self.act_editar.setShortcut(QKeySequence("F3"))
+        self.act_eliminar.setShortcut(QKeySequence("Delete"))
+
+    # -----------------------------
+    #   Gestión de la tabla
+    # -----------------------------
     def _cargar_productos(self):
         self._productos_cache = database.obtener_productos()
         return self._productos_cache
@@ -97,7 +117,7 @@ class MainWindow(QWidget):
         for row, prod in enumerate(productos):
             for col, val in enumerate(prod):
                 item = QTableWidgetItem(str(val))
-                if col == 3:
+                if col == 3:  # Cantidad
                     try:
                         cant = int(val)
                         if cant <= 5:
@@ -108,7 +128,8 @@ class MainWindow(QWidget):
                         pass
                 self.table.setItem(row, col, item)
 
-        # ordenar automáticamente por nombre (columna 2)
+        self.table.resizeColumnsToContents()
+        # Ordenar automáticamente por Nombre (columna 2)
         self.table.sortItems(2)
 
     def aplicar_filtros(self):
@@ -134,6 +155,9 @@ class MainWindow(QWidget):
 
         self._pintar_tabla(filtrados)
 
+    # -----------------------------
+    #   Historial
+    # -----------------------------
     def actualizar_historial(self):
         movimientos = database.obtener_movimientos()
         self.historial.clear()
@@ -160,13 +184,16 @@ class MainWindow(QWidget):
 
             self.historial.append(f"[{fecha}] {etiqueta}: {nombre} ({signo}) ${precio}")
 
+    # -----------------------------
+    #   Operaciones
+    # -----------------------------
     def abrir_formulario(self):
         dialog = FormularioProducto(self)
         if dialog.exec():
             datos = dialog.obtener_datos()
             try:
                 if not datos["codigo"] or not datos["nombre"]:
-                    self.historial.append("⚠ Completá Código y Nombre")
+                    self.status.showMessage("⚠ Completá Código y Nombre", 5000)
                     return
                 database.agregar_o_actualizar_producto(
                     datos["codigo"],
@@ -177,15 +204,15 @@ class MainWindow(QWidget):
                 self.actualizar_tabla()
                 self.actualizar_historial()
                 self.aplicar_filtros()
-                self.historial.append(f"✅ Ingreso: {datos['nombre']} (+{int(datos['cantidad'])}) ${float(datos['precio'])}")
+                self.status.showMessage(f"✅ Ingreso: {datos['nombre']} (+{int(datos['cantidad'])})", 5000)
             except ValueError:
-                self.historial.append("⚠ Error: cantidad y precio deben ser números")
+                self.status.showMessage("⚠ Error: cantidad y precio deben ser números", 5000)
 
     def exportar_excel(self):
         productos = database.obtener_productos()
         df = pd.DataFrame(productos, columns=["ID", "Código", "Nombre", "Cantidad", "Precio", "Movimientos"])
         df.to_excel("stock.xlsx", index=False)
-        self.historial.append("✅ Exportado a stock.xlsx")
+        self.status.showMessage("✅ Exportado a stock.xlsx", 5000)
 
     def importar_excel(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Seleccionar archivo Excel", "", "Excel Files (*.xlsx)")
@@ -194,7 +221,7 @@ class MainWindow(QWidget):
                 df = pd.read_excel(file_path)
                 requeridas = {"Codigo", "Nombre", "Cantidad", "Precio"}
                 if not requeridas.issubset(set(df.columns)):
-                    self.historial.append(f"⚠ El Excel debe tener columnas: {', '.join(sorted(requeridas))}")
+                    self.status.showMessage("⚠ El Excel debe tener columnas: Codigo, Nombre, Cantidad, Precio", 5000)
                     return
                 for _, row in df.iterrows():
                     database.agregar_o_actualizar_producto(
@@ -206,14 +233,14 @@ class MainWindow(QWidget):
                 self.actualizar_tabla()
                 self.actualizar_historial()
                 self.aplicar_filtros()
-                self.historial.append(f"📥 Importado desde {file_path}")
+                self.status.showMessage(f"📥 Importado desde {file_path}", 5000)
             except Exception as e:
-                self.historial.append(f"❌ Error al importar: {e}")
+                self.status.showMessage(f"❌ Error al importar: {e}", 5000)
 
     def editar_producto(self):
         fila = self.table.currentRow()
         if fila < 0:
-            self.historial.append("⚠ Selecciona un producto para editar")
+            self.status.showMessage("⚠ Selecciona un producto para editar", 5000)
             return
 
         id_ = int(self.table.item(fila, 0).text())
@@ -237,28 +264,31 @@ class MainWindow(QWidget):
                 self.actualizar_tabla()
                 self.actualizar_historial()
                 self.aplicar_filtros()
-                self.historial.append(f"✏️ Editado: {d['nombre']} (stock={int(d['cantidad'])}, precio=${float(d['precio'])})")
+                self.status.showMessage(f"✏️ Editado: {d['nombre']}", 5000)
             except ValueError:
-                self.historial.append("⚠ Error: cantidad y precio deben ser números")
+                self.status.showMessage("⚠ Error: cantidad y precio deben ser números", 5000)
 
     def eliminar_producto(self):
         fila = self.table.currentRow()
         if fila < 0:
-            self.historial.append("⚠ Selecciona un producto para eliminar")
+            self.status.showMessage("⚠ Selecciona un producto para eliminar", 5000)
             return
 
-        id_ = int(self.table.item(fila, 0).text())
         nombre = self.table.item(fila, 2).text()
-        database.eliminar_producto(id_)
-        self.actualizar_tabla()
-        self.actualizar_historial()
-        self.aplicar_filtros()
-        self.historial.append(f"❌ Eliminado: {nombre}")
+        confirm = QMessageBox.question(self, "Confirmar eliminación",
+                                       f"¿Eliminar producto '{nombre}'?")
+        if confirm == QMessageBox.Yes:
+            id_ = int(self.table.item(fila, 0).text())
+            database.eliminar_producto(id_)
+            self.actualizar_tabla()
+            self.actualizar_historial()
+            self.aplicar_filtros()
+            self.status.showMessage(f"❌ Eliminado: {nombre}", 5000)
 
     def vender_producto(self):
         fila = self.table.currentRow()
         if fila < 0:
-            self.historial.append("⚠ Selecciona un producto para vender")
+            self.status.showMessage("⚠ Selecciona un producto para vender", 5000)
             return
 
         id_ = int(self.table.item(fila, 0).text())
@@ -269,10 +299,10 @@ class MainWindow(QWidget):
         if dialog.exec():
             cantidad = dialog.obtener_cantidad()
             if cantidad is None or cantidad <= 0:
-                self.historial.append("⚠ Cantidad inválida")
+                self.status.showMessage("⚠ Cantidad inválida", 5000)
                 return
             if cantidad > stock_actual:
-                self.historial.append(f"❌ Stock insuficiente: hay {stock_actual}, intentaste vender {cantidad}")
+                self.status.showMessage(f"❌ Stock insuficiente: hay {stock_actual}, intentaste vender {cantidad}", 5000)
                 return
 
             ok = database.modificar_stock(id_, -cantidad)
@@ -280,10 +310,13 @@ class MainWindow(QWidget):
                 self.actualizar_tabla()
                 self.actualizar_historial()
                 self.aplicar_filtros()
-                self.historial.append(f"🛒 Vendidas {cantidad} unidades de {nombre} (ID {id_})")
+                self.status.showMessage(f"🛒 Vendidas {cantidad} unidades de {nombre}", 5000)
             else:
-                self.historial.append("❌ Stock insuficiente o producto no encontrado")
+                self.status.showMessage("❌ Stock insuficiente o producto no encontrado", 5000)
 
+    # -----------------------------
+    #   Reportes
+    # -----------------------------
     def generar_reporte_ventas(self):
         dlg = QDialog(self)
         dlg.setWindowTitle("Generar reporte de ventas")
@@ -310,20 +343,20 @@ class MainWindow(QWidget):
             ff = date_fin.date().toString("yyyy-MM-dd")
             ventas = database.obtener_ventas(fi, ff)
             if not ventas:
-                self.historial.append("ℹ️ No se encontraron ventas en el rango")
+                self.status.showMessage("ℹ️ No se encontraron ventas en el rango", 5000)
                 return
             df = pd.DataFrame(ventas, columns=["Código", "Nombre", "Cantidad", "Precio", "Fecha"])
-            # Total vendido $
-            total = sum(abs(v[2]) * v[3] for v in ventas)
-            df.loc[len(df.index)] = ["", "TOTAL VENDIDO", "", total, ""]
+            total_unidades = sum(abs(v[2]) for v in ventas)
+            total_dinero = sum(abs(v[2]) * v[3] for v in ventas)
+            df.loc[len(df.index)] = ["", "TOTAL", total_unidades, total_dinero, ""]
             df.to_excel("reporte_ventas.xlsx", index=False)
-            self.historial.append(f"📊 Reporte generado: reporte_ventas.xlsx ({fi} → {ff})")
+            self.status.showMessage(f"📊 Reporte generado: reporte_ventas.xlsx ({fi} → {ff})", 5000)
 
     def imprimir_bajo_stock(self):
         productos = [p for p in self._productos_cache if int(p[3]) <= 5]
         if not productos:
-            self.historial.append("ℹ️ No hay productos con bajo stock")
+            self.status.showMessage("ℹ️ No hay productos con bajo stock", 5000)
             return
         df = pd.DataFrame(productos, columns=["ID", "Código", "Nombre", "Cantidad", "Precio", "Movimientos"])
         df.to_excel("bajo_stock.xlsx", index=False)
-        self.historial.append("🖨 Listado bajo stock generado: bajo_stock.xlsx")
+        self.status.showMessage("🖨 Listado bajo stock generado: bajo_stock.xlsx", 5000)
