@@ -1,10 +1,11 @@
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton
+from PySide6.QtGui import QIntValidator, QDoubleValidator
 
 class FormularioProducto(QDialog):
     def __init__(self, parent=None, datos=None):
         super().__init__(parent)
         self.setWindowTitle("Producto")
-        self.resize(300, 200)
+        self.resize(320, 220)
 
         layout = QVBoxLayout()
 
@@ -16,16 +17,23 @@ class FormularioProducto(QDialog):
 
         # Nombre
         self.input_nombre = QLineEdit()
+        self.input_nombre.setPlaceholderText("Nombre del producto")
         layout.addWidget(QLabel("Nombre"))
         layout.addWidget(self.input_nombre)
 
         # Cantidad
         self.input_cantidad = QLineEdit()
+        self.input_cantidad.setPlaceholderText("0")
+        self.input_cantidad.setValidator(QIntValidator(0, 10**9, self))
         layout.addWidget(QLabel("Cantidad"))
         layout.addWidget(self.input_cantidad)
 
         # Precio
         self.input_precio = QLineEdit()
+        self.input_precio.setPlaceholderText("0.00")
+        val_precio = QDoubleValidator(0.0, 10**12, 2, self)
+        val_precio.setNotation(QDoubleValidator.StandardNotation)
+        self.input_precio.setValidator(val_precio)
         layout.addWidget(QLabel("Precio"))
         layout.addWidget(self.input_precio)
 
@@ -43,7 +51,7 @@ class FormularioProducto(QDialog):
         self.btn_guardar.clicked.connect(self.accept)
         self.btn_cancelar.clicked.connect(self.reject)
 
-        # Si se pasan datos → cargar en el formulario (para edición)
+        # Precarga para edición
         if datos:
             self.input_codigo.setText(str(datos.get("codigo", "")))
             self.input_nombre.setText(datos.get("nombre", ""))
@@ -52,8 +60,8 @@ class FormularioProducto(QDialog):
 
     def obtener_datos(self):
         return {
-            "codigo": self.input_codigo.text(),
-            "nombre": self.input_nombre.text(),
-            "cantidad": self.input_cantidad.text(),
-            "precio": self.input_precio.text()
+            "codigo": self.input_codigo.text().strip(),
+            "nombre": self.input_nombre.text().strip(),
+            "cantidad": self.input_cantidad.text().strip(),
+            "precio": self.input_precio.text().strip()
         }

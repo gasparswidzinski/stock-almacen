@@ -130,3 +130,17 @@ def editar_producto(id_, nombre, cantidad, precio):
 
     conn.commit()
     conn.close()
+
+def obtener_ventas(fecha_inicio, fecha_fin):
+    conn = sqlite3.connect(DB_NAME)
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT p.codigo, p.nombre, m.cambio, m.precio, m.fecha
+        FROM movimientos m
+        JOIN productos p ON p.id = m.producto_id
+        WHERE m.cambio < 0 AND date(m.fecha) BETWEEN date(?) AND date(?)
+        ORDER BY m.fecha ASC
+    """, (fecha_inicio, fecha_fin))
+    data = cur.fetchall()
+    conn.close()
+    return data
